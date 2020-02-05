@@ -2,7 +2,7 @@
 
 ## Methodology
 * Event Linkage
-* Impact Prediction
+* Event Impact Prediction
 
 
 
