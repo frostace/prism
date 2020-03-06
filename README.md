@@ -1,5 +1,9 @@
 # Event-Linkage-and-Impact-Prediction
 
+## Methodology
+* Event Linkage
+* Event Impact Prediction
+
 
 
 
