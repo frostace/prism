@@ -5,10 +5,17 @@
 pip install -r requirements.txt
 ```
 
-## Methodology
+## Pipeline
 
-* Event Linkage
-* Event Impact Prediction
+* Tweet Scraping
+* EDA
+* Preprocessing
+* Feature Engineering
+  * Feature Extraction
+  * Feature Selection
+* Model Training
+* Hyper Parameter Tuning
+* Testing
 
 
 
