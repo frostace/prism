@@ -1,6 +1,12 @@
 # Event-Linkage-and-Impact-Prediction
 
+## Prerequisites
+```shell
+pip install -r requirements.txt
+```
+
 ## Methodology
+
 * Event Linkage
 * Event Impact Prediction
 
@@ -12,7 +18,7 @@
 Read more about
 
   * []()
- 
+
 # Contributing
 
 You can [Contribute](docs/contributing.md) to this project with issues or pull requests.
