@@ -2767,7 +2767,7 @@ Oml,Oh my lord
 Sma,Suck my ass
 n,and
 n e,any
-,not applicable
+n/e,not applicable
 n/a/s/l,"name, age, sex location"
 n/c,no comment
 n/m,nevermind
@@ -5053,7 +5053,7 @@ Wyut,What you up to
 wyw,What You Want
 wywh,wish you were here
 wywo,while you were out
-w\e,whatever
+w\\e,whatever
 txtms,text me soon
 x treme,extreme
 xb36t,Xbox 360
