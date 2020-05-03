@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="style.css" />
+        <script src="https://d3js.org/d3.v5.min.js" charset="UTF-8"></script>
+        <title>Line Chart</title>
+    </head>
+    <body>
+        <h1>Test</h1>
+        <svg class="line-chart"></svg>
+        <!-- <script type="module" src="./index.js"></script> -->
+        <!-- <script type="module" src="./domUid.js"></script> -->
+        <script>
+            // ============ dependencies ================================================
+            async function remote_fetch(file) {
+                const response = await fetch(await file.url());
+                if (!response.ok)
+                    throw new Error(`Unable to load file: ${file.name}`);
+                return response;
+            }
+
+            class FileAttachment {
+                constructor(url, name) {
+                    Object.defineProperties(this, {
+                        _url: { value: url },
+                        name: { value: name, enumerable: true },
+                    });
+                }
+                async url() {
+                    return this._url;
+                }
+                async blob() {
+                    return (await remote_fetch(this)).blob();
+                }
+                async arrayBuffer() {
+                    return (await remote_fetch(this)).arrayBuffer();
+                }
+                async text() {
+                    return (await remote_fetch(this)).text();
+                }
+                async json() {
+                    return (await remote_fetch(this)).json();
+                }
+                async stream() {
+                    return (await remote_fetch(this)).body;
+                }
+                async image() {
+                    const url = await this.url();
+                    return new Promise((resolve, reject) => {
+                        const i = new Image();
+                        if (
+                            new URL(url, document.baseURI).origin !==
+                            new URL(location).origin
+                        ) {
+                            i.crossOrigin = "anonymous";
+                        }
+                        i.onload = () => resolve(i);
+                        i.onerror = () =>
+                            reject(
+                                new Error(`Unable to load file: ${this.name}`)
+                            );
+                        i.src = url;
+                    });
+                }
+            }
+
+            function NoFileAttachments(name) {
+                throw new Error(`File not found: ${name}`);
+            }
+
+            function FileAttachments(resolve) {
+                return (name) => {
+                    const url = resolve((name += "")); // Returns a Promise, string, or null.
+                    if (url == null) throw new Error(`File not found: ${name}`);
+                    return new FileAttachment(url, name);
+                };
+            }
+
+            function resolve(name, base) {
+                if (/^(\w+:)|\/\//i.test(name)) return name;
+                if (/^[.]{0,2}\//i.test(name))
+                    return new URL(name, base == null ? location : base).href;
+                if (!name.length || /^[\s._]/.test(name) || /\s$/.test(name))
+                    throw new Error("illegal name");
+                return "https://unpkg.com/" + name;
+            }
+
+            var count = 0;
+            function domUid(name) {
+                return new Id(
+                    "O-" + (name == null ? "" : name + "-") + ++count
+                );
+            }
+
+            function Id(id) {
+                this.id = id;
+                this.href = new URL(`#${id}`, location) + "";
+            }
+
+            Id.prototype.toString = function () {
+                return "url(" + this.href + ")";
+            };
+
+            // =================================================================================
+            let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
+            let curve = d3.curveStep;
+            let margin = { top: 20, right: 20, bottom: 30, left: 30 };
+            let height = 600;
+            let width = 800;
+
+            function convert(d) {
+                console.log(d);
+            }
+            const parseDate = d3.timeParse("%Y%m%d");
+            // const data = d3.tsvParse(
+            //     await FileAttachment("./weather.tsv").text(),
+            //     (d) => ({
+            //         date: parseDate(d.date),
+            //         value0: +d["New York"], // The primary value.
+            //         value1: +d["San Francisco"], // The secondary comparison value.
+            //     })
+            // );
+            // data.y = "°F";
+
+            d3.tsv("weather.tsv").then(function (data) {
+                let x = d3
+                    .scaleTime()
+                    .domain(d3.extent(data, (d) => d.date))
+                    .range([margin.left, width - margin.right]);
+                let y = d3
+                    .scaleLinear()
+                    .domain([
+                        d3.min(data, (d) => Math.min(d.value0, d.value1)),
+                        d3.max(data, (d) => Math.max(d.value0, d.value1)),
+                    ])
+                    .nice(5)
+                    .range([height - margin.bottom, margin.top]);
+                xAxis = (g) =>
+                    g
+                        .attr(
+                            "transform",
+                            `translate(0,${height - margin.bottom})`
+                        )
+                        .call(
+                            d3
+                                .axisBottom(x)
+                                .ticks(width / 80)
+                                .tickSizeOuter(0)
+                        )
+                        .call((g) => g.select(".domain").remove());
+                yAxis = (g) =>
+                    g
+                        .append("g")
+                        .attr("transform", `translate(${margin.left},0)`)
+                        .call(d3.axisLeft(y))
+                        .call((g) => g.select(".domain").remove())
+                        .call((g) =>
+                            g
+                                .select(".tick:last-of-type text")
+                                .clone()
+                                .attr("x", 3)
+                                .attr("text-anchor", "start")
+                                .attr("font-weight", "bold")
+                                .text(data.y)
+                        );
+
+                const aboveUid = domUid("above");
+                const belowUid = domUid("below");
+
+                const chart = d3
+                    .create("svg")
+                    .attr("viewBox", [0, 0, width, height])
+                    .datum(data);
+                chart.append("g").call(xAxis);
+                chart.append("g").call(yAxis);
+                chart
+                    .append("clipPath")
+                    .attr("id", aboveUid.id)
+                    .append("path")
+                    .attr(
+                        "d",
+                        d3
+                            .area()
+                            .curve(curve)
+                            .x((d) => x(d.date))
+                            .y0(0)
+                            .y1((d) => y(d.value1))
+                    );
+
+                chart
+                    .append("clipPath")
+                    .attr("id", belowUid.id)
+                    .append("path")
+                    .attr(
+                        "d",
+                        d3
+                            .area()
+                            .curve(curve)
+                            .x((d) => x(d.date))
+                            .y0(height)
+                            .y1((d) => y(d.value1))
+                    );
+
+                chart
+                    .append("path")
+                    .attr("clip-path", aboveUid)
+                    .attr("fill", colors[1])
+                    .attr(
+                        "d",
+                        d3
+                            .area()
+                            .curve(curve)
+                            .x((d) => x(d.date))
+                            .y0(height)
+                            .y1((d) => y(d.value0))
+                    );
+
+                chart
+                    .append("path")
+                    .attr("clip-path", belowUid)
+                    .attr("fill", colors[0])
+                    .attr(
+                        "d",
+                        d3
+                            .area()
+                            .curve(curve)
+                            .x((d) => x(d.date))
+                            .y0(0)
+                            .y1((d) => y(d.value0))
+                    );
+
+                chart
+                    .append("path")
+                    .attr("fill", "none")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 1.5)
+                    .attr("stroke-linejoin", "round")
+                    .attr("stroke-linecap", "round")
+                    .attr(
+                        "d",
+                        d3
+                            .line()
+                            .curve(curve)
+                            .x((d) => x(d.date))
+                            .y((d) => y(d.value0))
+                    );
+            });
+        </script>
+    </body>
+</html>
