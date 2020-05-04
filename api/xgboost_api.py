@@ -5,18 +5,18 @@ import pandas as pd
 import numpy as np
 
 app = Flask(__name__)
-@app.route('/xgboost_api', methods=['POST']) # Your API endpoint URL would consist /predict
 
+@app.route('/xgboost_api', methods=['POST']) # Your API endpoint URL would consist /predict
 def predict():
 	if model:
 		try:
 			# print(request)
 			json_ = request.json
 			# print("json: ", json_)
-			query = pd.get_dummies(pd.DataFrame(json_))
-			query = query.reindex(columns=model_columns, fill_value=0)
-			# print("query: ", query)
-			prediction_scaled = list(model.predict(query))
+			feature = pd.get_dummies(pd.DataFrame(json_))
+			feature = feature.reindex(columns=model_columns, fill_value=0)
+			# print("feature: ", feature)
+			prediction_scaled = list(model.predict(feature))
 
 			return jsonify({'prediction_scaled': str(prediction_scaled)})
 

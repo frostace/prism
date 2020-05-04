@@ -11,7 +11,7 @@
         <h1>Test</h1>
         <svg class="line-chart"></svg>
         <!-- <script type="module" src="./index.js"></script> -->
-        <!-- <script type="module" src="./domUid.js"></script> -->
+        <!-- <script type="module" src="./lib/domUid.js"></script> -->
         <script>
             // ============ dependencies ================================================
             async function remote_fetch(file) {
@@ -335,17 +335,22 @@
                     formatValue: formatValue,
                 };
             }
+
+            function saveText(text, filename) {
+                var a = document.createElement("a");
+                a.setAttribute(
+                    "href",
+                    "data:text/plain;charset=utf-8," + encodeURIComponent(text)
+                );
+                a.setAttribute("download", filename);
+                a.click();
+            }
             // =================================================================================
             let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
             let curve = d3.curveStep;
             let margin = { top: 20, right: 20, bottom: 30, left: 30 };
             let height = 600;
             let width = 800;
-
-            // // test
-            // var output = null;
-            // console.log(true && (output = 123));
-            // console.log(output);
 
             const parseDate = d3.timeParse("%Y%m%d");
             function convert(d) {
