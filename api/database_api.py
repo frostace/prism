@@ -11,6 +11,9 @@ from flask_restful import Resource, Api
 import traceback
 import pandas as pd
 import numpy as np
+from datetime import date
+from backports.datetime_fromisoformat import MonkeyPatch
+MonkeyPatch.patch_fromisoformat()
 
 app = Flask(__name__)
 api = Api(app)
@@ -34,22 +37,23 @@ def update_real_3d(real_3d, new_price):
     # left shift the real_3d for 1 day
     return real_3d[1:] + [new_price]
 
-def update_real_pred_15d(real_pred_15d, real_new_price=None, pred_new_price=None):
+def update_real_pred_15d(real_pred_15d, real_new_price_w_date=None, pred_new_price_w_date=None):
     """@params:
         real_pred_15d: List[dict]
-        real_new_price: dict: {"date": , "value": } 
-        pred_new_price: dict: {"date": , "value": } 
-        one of real_new_price and pred_new_price must be None
+        real_new_price_w_date: dict: {"date": , "value": } 
+        pred_new_price_w_date: dict: {"date": , "value": } 
+        one of real_new_price_w_date and pred_new_price_w_date must be None
     """
     # take care of the parallelism of real and pred price
     last_day_price = real_pred_15d[-1]
     if not last_day_price["value0"] or not last_day_price["value1"]:
         # one of them is None, only update one entry
-        real_pred_15d[-1]["value0"], real_pred_15d[-1]["value1"] = real_new_price if real_new_price else last_day_price["value0"], pred_new_price if pred_new_price else last_day_price["value1"]
+        real_pred_15d[-1]["value0"], real_pred_15d[-1]["value1"] = real_new_price_w_date["value"] if real_new_price_w_date else last_day_price["value0"], pred_new_price_w_date["value"] if pred_new_price_w_date else last_day_price["value1"]
     else:
         # left shift and update one entry
-        date = (real_new_price or pred_new_price)["date"]
-        real_pred_15d = real_pred_15d[1:] + [{"date": date, "value0":real_new_price, "value1": pred_new_price}]
+        date = (real_new_price_w_date or pred_new_price_w_date)["date"]
+        real_pred_15d = real_pred_15d[1:] + [{"date": date, "value0": real_new_price_w_date["value"] if real_new_price_w_date else None, "value1": pred_new_price_w_date["value"] if pred_new_price_w_date else None}]
+    return real_pred_15d
 
 # implement a DBMS class
 class DBMS(Resource):
@@ -60,7 +64,7 @@ class DBMS(Resource):
         #   - real_3d
         #   - real_pred_15d
         try:
-            print("request for " + data_name + " received")
+            print("request for " + data_name + " received", end=": ")
             if data_name == 'feature':
                 print(db.feature)
                 return db.feature
@@ -81,27 +85,37 @@ class DBMS(Resource):
         # options:
         #   - feature
         #   - real_new_price (used to update real_3d and real_pred_15d)
-        #   - pred_tmr_price
+        #   - pred_new_price
         try:
             if data_name == 'feature':
                 db.feature = request.json
             elif data_name == "real_new_price":
-                new_date = request.json["date"]
-                new_price = request.json["value"]
-                db.cur_date = new_date
-                db.real_3d = update_real_3d(db.real_3d, new_price)
-                db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, new_price)
-            elif data_name == "pred_tmr_price":
-                pred_new_date = request.json["date"]
-                pred_new_price = request.json["value"]
-                db.pred_tmr_price = pred_new_price
-                db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, pred_new_price)
+                real_new_price_with_date = request.json
+                real_new_date = real_new_price_with_date["date"]
+                if date.fromisoformat(db.cur_date) >= date.fromisoformat(real_new_date): return "Duplicate Date"
+                real_new_price = real_new_price_with_date["value"]
+                # real_new_price_with_date["value"] = real_new_price
+                print(real_new_date, real_new_price)
+                db.cur_date = real_new_date
+                db.real_3d = update_real_3d(db.real_3d, real_new_price)
+                db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, real_new_price_with_date, None)
+            elif data_name == "pred_new_price":
+                pred_new_price_with_date = request.json
+                pred_new_date = pred_new_price_with_date["date"]
+                if date.fromisoformat(db.cur_date) >= date.fromisoformat(pred_new_date): return "Duplicate Date"
+                pred_new_price = pred_new_price_with_date["value"]
+                # pred_new_price_with_date["value"] = pred_new_price
+                print(pred_new_date, pred_new_price)
+                db.pred_new_price = pred_new_price
+                db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, None, pred_new_price_with_date)
             else:
                 print("data name not found!")
                 return None
         except:
             return jsonify({'trace': traceback.format_exc()})
         print(data_name + " updated: ", request.json)
+        print(db.real_pred_15d)
+        return "RCV"
 
 # @app.route('/database_api', methods=['POST']) # Your API endpoint URL would consist /predict
 # def newhome():

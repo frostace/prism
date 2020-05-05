@@ -3,12 +3,13 @@ import requests
 import json
 import numpy as np
 import ast
+from datetime import date
 
 # defining the api-endpoint  
 XGBOOST_API_ENDPOINT = "http://127.0.0.1:12345/xgboost_api"
 DATABASE_API_ENDPOINT = "http://127.0.0.1:12346/database_api"
 
-# e.g. : feature = [{"adj_close_lag_1":-1.335762949,"adj_close_lag_2":-1.0653761979},"range_hl_lag_1":0.0790925831,"range_hl_lag_2":2.155841619,"range_oc_lag_1":0.5980460874,"range_oc_lag_2":2.2147373628,"volume_lag_1":1.0007798471,"volume_lag_2":1.0859438241,"0_lag1":-1.954737843,"1_lag1":-14.4416495832,"2_lag1":63.646112391,"3_lag1":-10.7318359413,"4_lag1":39.5541503289,"5_lag1":-40.8635897857,"6_lag1":-10.2723266565}]
+# e.g. : data = {"date": "2019-03-04", "feature": {"adj_close_lag_1":{"0":-1.335762949},"adj_close_lag_2":{"0":-1.0653761979}...}}
 
 # TODO: wrap up the following inside a function
 ### ====== Load model and predict ==============================
@@ -16,7 +17,9 @@ DATABASE_API_ENDPOINT = "http://127.0.0.1:12346/database_api"
 f = open('../json/test.json',) 
 
 # returns JSON object as a dictionary 
-feature = json.load(f) 
+data = json.load(f)
+cur_date = data["date"]
+feature = data["feature"]
 
 # sending post request and saving response as response object 
 xgb_response = requests.post(url = XGBOOST_API_ENDPOINT, json = feature) 
@@ -26,7 +29,7 @@ xgb_response = requests.post(url = XGBOOST_API_ENDPOINT, json = feature)
 result_json = json.loads(xgb_response.text)                 # json obj          e.g.: {'prediction_scaled': '[-1.4321082]'}
 predicted_value_json = result_json['prediction_scaled']     # string of a list  e.g.: '[-1.4321082]'
 prediction_scaled = json.loads(predicted_value_json)        # list              e.g.: [-1.4321082]
-print("The scaled prediction is:%s" % prediction_scaled) 
+print("The scaled prediction is:%s" % prediction_scaled[0]) 
 ### ===========================================================
 
 ### ====== reverse scale mapping ==============================
@@ -49,8 +52,12 @@ def reverse_scale(prediction_scaled):
     return prediction
 
 # mapping
-prediction = list(map(reverse_scale, prediction_scaled))
+prediction = list(map(reverse_scale, prediction_scaled))[0]
 
-# TODO: post predicted price to database_api/pred_tmr_price: {"date": , "value": }
-print("The original prediction is:%s" % prediction) 
+# post predicted price to database_api/pred_new_price: {"date": , "value": }
+print("The original prediction is:%s" % prediction)
+pred_new_price = {"date": cur_date, "value": prediction}
+database_response = requests.post(url = DATABASE_API_ENDPOINT + "/pred_new_price", json = pred_new_price) 
+print(database_response.text)
+# TODO: add 3 way handshake to make comm more stable
 ### ===========================================================
