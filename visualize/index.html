@@ -9,7 +9,6 @@
     </head>
     <body>
         <h1>Test</h1>
-        <svg class="line-chart"></svg>
         <!-- <script type="module" src="./index.js"></script> -->
         <!-- <script type="module" src="./lib/domUid.js"></script> -->
         <script>
@@ -373,21 +372,21 @@
             // );
             // data.y = "°F";
 
-            // send a get request to "http://localhost:12346/database_api/real_pred_15d"
-            // fetch(proxyurl + database_api_endpoint + "/real_pred_15d")
+            // send a get request to "http://localhost:12346/database_api/real_pred_90d"
+            // fetch(proxyurl + database_api_endpoint + "/real_pred_90d")
             //     .then((response) => response.text())
             //     .then((data) => {
             //         console.log(data);
             //     });
 
-            fetch(proxyurl + database_api_endpoint + "/real_pred_15d")
+            fetch(proxyurl + database_api_endpoint + "/real_pred_90d")
                 .then((response) => response.text())
                 .then((text) => {
                     var data = JSON.parse(text).map((d) => {
                         return {
                             date: parseDate(d.date.replace(/[-]/g, "")),
-                            value0: +d["value0"], // The Real Stock Price
-                            value1: +d["value1"], // The Predicted Stock Price
+                            value0: +d["value0"], // The Real Stock Price - whiteline
+                            value1: +d["value1"], // The Predicted Stock Price - blue/red bar
                         };
                     });
                     console.log(data);
@@ -522,6 +521,9 @@
                                 .x((d) => x(d.date))
                                 .y((d) => y(d.value0))
                         );
+                })
+                .catch((error) => {
+                    console.log(error);
                 });
 
             // d3.tsv("weather.tsv", convert).then(function (data) {
