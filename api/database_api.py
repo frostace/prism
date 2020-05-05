@@ -1,12 +1,13 @@
 
 # Database Management Service
+# TODO: resolve this warning
 '''
 WARNING: This is a development server. Do not use it in a production deployment.
 Use a production WSGI server instead.
 '''
 
 import joblib 
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify, make_response, Response
 from flask_restful import Resource, Api
 import traceback
 import pandas as pd
@@ -95,7 +96,6 @@ class DBMS(Resource):
                 if date.fromisoformat(db.cur_date) >= date.fromisoformat(real_new_date): return "Duplicate Date"
                 real_new_price = real_new_price_with_date["value"]
                 # real_new_price_with_date["value"] = real_new_price
-                print(real_new_date, real_new_price)
                 db.cur_date = real_new_date
                 db.real_3d = update_real_3d(db.real_3d, real_new_price)
                 db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, real_new_price_with_date, None)
@@ -105,7 +105,6 @@ class DBMS(Resource):
                 if date.fromisoformat(db.cur_date) >= date.fromisoformat(pred_new_date): return "Duplicate Date"
                 pred_new_price = pred_new_price_with_date["value"]
                 # pred_new_price_with_date["value"] = pred_new_price
-                print(pred_new_date, pred_new_price)
                 db.pred_new_price = pred_new_price
                 db.real_pred_15d = update_real_pred_15d(db.real_pred_15d, None, pred_new_price_with_date)
             else:
@@ -114,17 +113,15 @@ class DBMS(Resource):
         except:
             return jsonify({'trace': traceback.format_exc()})
         print(data_name + " updated: ", request.json)
-        print(db.real_pred_15d)
+        # print(db.real_pred_15d)
         return "RCV"
 
-# @app.route('/database_api', methods=['POST']) # Your API endpoint URL would consist /predict
-# def newhome():
-#     print(request.json)
-#     return "test" 
-
-# @app.route('/database_api', methods=['GET']) # Your API endpoint URL would consist /predict
-# def home():
-#     return "test"
+    def options(self, data_name):
+        resp = Response("Test CORS")
+        resp.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5500'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return resp
 
 @app.errorhandler(404)
 def not_found(error):

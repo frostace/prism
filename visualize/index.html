@@ -351,8 +351,10 @@
             let margin = { top: 20, right: 20, bottom: 30, left: 30 };
             let height = 600;
             let width = 800;
-
+            const database_api_endpoint = "127.0.0.1:12346/database_api";
             const parseDate = d3.timeParse("%Y%m%d");
+            const proxyurl = "http://127.0.0.1:12340/";
+
             function convert(d) {
                 return {
                     date: parseDate(d.date),
@@ -371,6 +373,150 @@
             // );
             // data.y = "°F";
 
+            // send a get request to "http://localhost:12346/database_api/real_pred_15d"
+            // fetch(proxyurl + database_api_endpoint + "/real_pred_15d")
+            //     .then((response) => response.text())
+            //     .then((data) => {
+            //         console.log(data);
+            //     });
+
+            fetch(proxyurl + database_api_endpoint + "/real_pred_15d")
+                .then((response) => response.text())
+                .then((text) => {
+                    console.log(text);
+                    data = convert(text);
+                    console.log(data);
+                    let x = d3
+                        .scaleTime()
+                        .domain(d3.extent(data, (d) => d.date))
+                        .range([margin.left, width - margin.right]);
+                    let y = d3
+                        .scaleLinear()
+                        .domain([
+                            d3.min(data, (d) => Math.min(d.value0, d.value1)),
+                            d3.max(data, (d) => Math.max(d.value0, d.value1)),
+                        ])
+                        .nice(5)
+                        .range([height - margin.bottom, margin.top]);
+                    xAxis = (g) =>
+                        g
+                            .attr(
+                                "transform",
+                                `translate(0,${height - margin.bottom})`
+                            )
+                            .call(
+                                d3
+                                    .axisBottom(x)
+                                    .ticks(width / 80)
+                                    .tickSizeOuter(0)
+                            )
+                            .call((g) => g.select(".domain").remove());
+                    yAxis = (g) =>
+                        g
+                            .append("g")
+                            .attr("transform", `translate(${margin.left},0)`)
+                            .call(d3.axisLeft(y))
+                            .call((g) => g.select(".domain").remove())
+                            .call((g) =>
+                                g
+                                    .select(".tick:last-of-type text")
+                                    .clone()
+                                    .attr("x", 3)
+                                    .attr("text-anchor", "start")
+                                    .attr("font-weight", "bold")
+                                    .text(data.y)
+                            );
+
+                    const aboveUid = domUid("above");
+                    const belowUid = domUid("below");
+
+                    var chart = d3
+                        .select("body")
+                        .append("svg")
+                        .attr("viewBox", [0, 0, width, height])
+                        .datum(data);
+
+                    // var circle = chart
+                    //     .append("circle")
+                    //     .attr("cx", 150)
+                    //     .attr("cy", 75)
+                    //     .attr("r", 20)
+                    //     .attr("fill", "red")
+                    //     .chart.append("g")
+                    //     .call(xAxis);
+                    chart.append("g").call(yAxis);
+                    chart
+                        .append("clipPath")
+                        .attr("id", aboveUid.id)
+                        .append("path")
+                        .attr(
+                            "d",
+                            d3
+                                .area()
+                                .curve(curve)
+                                .x((d) => x(d.date))
+                                .y0(0)
+                                .y1((d) => y(d.value1))
+                        );
+
+                    chart
+                        .append("clipPath")
+                        .attr("id", belowUid.id)
+                        .append("path")
+                        .attr(
+                            "d",
+                            d3
+                                .area()
+                                .curve(curve)
+                                .x((d) => x(d.date))
+                                .y0(height)
+                                .y1((d) => y(d.value1))
+                        );
+
+                    chart
+                        .append("path")
+                        .attr("clip-path", aboveUid)
+                        .attr("fill", colors[1])
+                        .attr(
+                            "d",
+                            d3
+                                .area()
+                                .curve(curve)
+                                .x((d) => x(d.date))
+                                .y0(height)
+                                .y1((d) => y(d.value0))
+                        );
+
+                    chart
+                        .append("path")
+                        .attr("clip-path", belowUid)
+                        .attr("fill", colors[0])
+                        .attr(
+                            "d",
+                            d3
+                                .area()
+                                .curve(curve)
+                                .x((d) => x(d.date))
+                                .y0(0)
+                                .y1((d) => y(d.value0))
+                        );
+
+                    chart
+                        .append("path")
+                        .attr("fill", "none")
+                        .attr("stroke", "black")
+                        .attr("stroke-width", 1.5)
+                        .attr("stroke-linejoin", "round")
+                        .attr("stroke-linecap", "round")
+                        .attr(
+                            "d",
+                            d3
+                                .line()
+                                .curve(curve)
+                                .x((d) => x(d.date))
+                                .y((d) => y(d.value0))
+                        );
+                });
             d3.tsv("weather.tsv", convert).then(function (data) {
                 console.log(data);
                 let x = d3
