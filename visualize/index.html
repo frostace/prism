@@ -1,14 +1,24 @@
 <!DOCTYPE html>
+<style>
+    /* set the CSS */
+    .grid {
+        stroke: lightgrey;
+        stroke-opacity: 0.7;
+        shape-rendering: crispEdges;
+        stroke-width: 0;
+    }
+</style>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="./style.css" />
         <script src="https://d3js.org/d3.v5.min.js" charset="UTF-8"></script>
+        <script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
         <title>Line Chart</title>
     </head>
     <body>
-        <h1>Test</h1>
+        <h1>$GOOGL</h1>
         <!-- <script type="module" src="./index.js"></script> -->
         <!-- <script type="module" src="./lib/domUid.js"></script> -->
         <script>
@@ -362,6 +372,9 @@
                 };
             }
 
+            function make_y_gridlines() {
+                return d3.axisLeft(y).ticks(5);
+            }
             // const data = dsv("\t").parse(
             //     await FileAttachment("./weather.tsv").text(),
             //     (d) => ({
@@ -379,7 +392,7 @@
             //         console.log(data);
             //     });
 
-            fetch(proxyurl + database_api_endpoint + "/real_pred_90d")
+            fetch(proxyurl + database_api_endpoint + "/real_pred_150d")
                 .then((response) => response.text())
                 .then((text) => {
                     var data = JSON.parse(text).map((d) => {
@@ -394,7 +407,7 @@
                     let x = d3
                         .scaleTime()
                         .domain(d3.extent(data, (d) => d.date))
-                        .range([margin.left, width - margin.right]);
+                        .range([margin.left + 10, 0.9 * width - margin.right]);
                     let y = d3
                         .scaleLinear()
                         .domain([
@@ -419,7 +432,10 @@
                     yAxis = (g) =>
                         g
                             .append("g")
-                            .attr("transform", `translate(${margin.left},0)`)
+                            .attr(
+                                "transform",
+                                `translate(${margin.left + 10},0)`
+                            )
                             .call(d3.axisLeft(y))
                             .call((g) => g.select(".domain").remove())
                             .call((g) =>
@@ -441,15 +457,10 @@
                         .attr("viewBox", [0, 0, width, height])
                         .datum(data);
 
-                    // var circle = chart
-                    //     .append("circle")
-                    //     .attr("cx", 150)
-                    //     .attr("cy", 75)
-                    //     .attr("r", 20)
-                    //     .attr("fill", "red")
-                    //     .chart.append("g")
-                    //     .call(xAxis);
+                    // generate x and y axis
+                    chart.append("g").call(xAxis);
                     chart.append("g").call(yAxis);
+
                     chart
                         .append("clipPath")
                         .attr("id", aboveUid.id)
@@ -478,6 +489,7 @@
                                 .y1((d) => y(d.value1))
                         );
 
+                    // generate error bars lower than baseline
                     chart
                         .append("path")
                         .attr("clip-path", aboveUid)
@@ -492,6 +504,7 @@
                                 .y1((d) => y(d.value0))
                         );
 
+                    // generate error bars higher than baseline
                     chart
                         .append("path")
                         .attr("clip-path", belowUid)
@@ -506,6 +519,7 @@
                                 .y1((d) => y(d.value0))
                         );
 
+                    // generate baseline - whiteline
                     chart
                         .append("path")
                         .attr("fill", "none")
@@ -521,6 +535,82 @@
                                 .x((d) => x(d.date))
                                 .y((d) => y(d.value0))
                         );
+
+                    // add horizontal grid lines
+
+                    // const numberOfTicks = 12;
+                    // var yAxisGrid = d3
+                    //     .axisRight()
+                    //     .scale(y)
+                    //     .ticks(numberOfTicks)
+                    //     .tickSize(width, 0)
+                    //     .tickFormat("");
+                    // chart
+                    //     .append("g")
+                    //     .classed("y", true)
+                    //     .classed("axis", true)
+                    //     .call(yAxisGrid);
+
+                    // draw predicted new price
+                    fetch(proxyurl + database_api_endpoint + "/pred_new_price")
+                        .then((response) => response.text())
+                        .then((text) => {
+                            var real_prev_price =
+                                data[data.length - 1]["value0"];
+                            var pred_new_price = JSON.parse(text);
+                            var yAxisLow = y.domain()[0];
+                            var yAxisHigh = y.domain()[1];
+
+                            if (pred_new_price !== null) {
+                                // compute predicted new price pixel location according to canvas size
+                                var real_new_price_x =
+                                    0.9 * width - margin.right;
+                                var real_prev_price_y =
+                                    ((height - margin.top - margin.bottom) *
+                                        (yAxisHigh - real_prev_price)) /
+                                        (yAxisHigh - yAxisLow) +
+                                    margin.top;
+                                var pred_new_price_x =
+                                    (151 *
+                                        (0.9 * width -
+                                            margin.left -
+                                            margin.right)) /
+                                        150 +
+                                    margin.left +
+                                    10;
+                                var pred_new_price_y =
+                                    ((height - margin.top - margin.bottom) *
+                                        (yAxisHigh - pred_new_price)) /
+                                        (yAxisHigh - yAxisLow) +
+                                    margin.top;
+
+                                chart
+                                    .append("line")
+                                    .classed("blinking", true)
+                                    .attr("x1", real_new_price_x)
+                                    .attr("y1", real_prev_price_y)
+                                    .attr("x2", pred_new_price_x)
+                                    .attr("y2", pred_new_price_y)
+                                    .attr("fill", "none")
+                                    .attr("stroke-width", 2)
+                                    .attr("stroke", "orange")
+                                    .style("stroke-dasharray", "1, 1");
+                                var circle = chart
+                                    .append("circle")
+                                    .classed("blinking", true)
+                                    .attr("cx", pred_new_price_x)
+                                    .attr("cy", pred_new_price_y)
+                                    .attr("r", 3)
+                                    .attr("fill", "orange");
+                            }
+                        });
+
+                    // var circle = chart
+                    //     .append("circle")
+                    //     .attr("cx", 783)
+                    //     .attr("cy", pred_new_price_height)
+                    //     .attr("r", 2)
+                    //     .attr("fill", "red");
                 })
                 .catch((error) => {
                     console.log(error);
