@@ -144,6 +144,7 @@ class DBMS(Resource):
         # print(db.real_pred_150d)
         return "RCV"
 
+    # this is for CORS preflight to work
     def options(self, data_name):
         resp = Response("Test CORS")
         resp.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5500'
@@ -161,7 +162,7 @@ if __name__ == '__main__':
 	try:
 		port = int(sys.argv[1]) # This is for a command-line argument
 	except:
-		port = 12346 # If you don't provide any port then the port will be set to 12345
+		port = 12346 # If you don't provide any port then the port will be set to 12346
 
 	print ('Database Management Running...')
 
