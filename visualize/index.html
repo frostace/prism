@@ -364,19 +364,133 @@
                 a.click();
             }
             // =================================================================================
+            // graph
             let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
             let curve = d3.curveStep;
+
+            // scales
             let margin = { top: 20, right: 20, bottom: 30, left: 30 };
             let height = 350;
             let width = 800;
-            let counter = 0;
-            const database_api_endpoint = "127.0.0.1:12346/database_api";
-            const parseDate = d3.timeParse("%Y%m%d");
+            let counter = 0; // for even/odd check of enter press
+
+            // endpoints
             const proxyurl = "http://127.0.0.1:12340/";
+            const feature_api_endpoint = "127.0.0.1:12347/feature_api";
+            const database_api_endpoint = "127.0.0.1:12346/database_api";
+            const xgboost_api_endpoint = "127.0.0.1:12345/xgboost_api";
+            const parseDate = d3.timeParse("%Y%m%d");
+
+            // init data for plot
+            var data;
+            var x, y;
+            var pred_new_price_buffer;
+            var pred_new_date_buffer;
+
+            // init chart
             var chart = d3
                 .select("body")
                 .append("svg")
                 .attr("viewBox", [0, 0, width, height]);
+            var chartHeight = parseInt(chart.style("height"), 10);
+            var chartWidth = parseInt(chart.style("width"), 10);
+
+            // ========== Cursor Tracker =========================================
+            chart.on("mousemove", function () {
+                // coord mapping
+                var svgX = ((d3.event.pageX - 7) / chartWidth) * width;
+                var svgY = ((d3.event.pageY - 79) / chartHeight) * height;
+                var i =
+                    ((svgX - margin.left - 10) /
+                        (0.9 * width - margin.right - margin.left - 10)) *
+                    149;
+
+                var idx = Math.min(Math.round(i), 150);
+                var cursorX = dayToPixelX(idx) + width / 320;
+                var cursorY; // closest value
+                var real_price = 0;
+                var pred_price = 0;
+                var closestDate = null;
+                var closerToReal = true;
+
+                if (idx < 150) {
+                    real_price = data[idx]["value0"].toFixed(2);
+                    pred_price = data[idx]["value1"].toFixed(2);
+                    real_price_px = priceToPixelY(real_price);
+                    pred_price_px = priceToPixelY(pred_price);
+                    closestDate = data[idx]["date"].toDateString();
+                    closerToReal =
+                        Math.abs(svgY - real_price_px) <
+                        Math.abs(svgY - pred_price_px)
+                            ? true
+                            : false;
+                    cursorY = closerToReal ? real_price_px : pred_price_px;
+                    // console.log(idx, real_price_px, pred_price_px, svgY);
+                } else {
+                    cursorY =
+                        pred_new_price_buffer === null
+                            ? -100
+                            : priceToPixelY(pred_new_price_buffer);
+                    closerToReal = false;
+                    pred_price = pred_new_price_buffer.toFixed(2);
+                    closestDate = "Next Opening Day";
+                }
+
+                if (Math.abs(svgY - cursorY) < 50) {
+                    chart.select("#cursorCircle").remove();
+                    chart.select("#floatingBox").remove();
+                    chart.selectAll(".textFloatingBox").remove();
+
+                    if (idx < 150) {
+                        chart
+                            .append("circle")
+                            .attr("id", "cursorCircle")
+                            .attr("cx", cursorX)
+                            .attr("cy", cursorY)
+                            .attr("r", 3)
+                            .attr("stroke", "black")
+                            .attr("fill", "none");
+                    }
+
+                    // add floating box to display details
+                    var displayDate = closerToReal
+                        ? "Date: " + closestDate
+                        : "Date: " + closestDate;
+                    var displayPrice = closerToReal
+                        ? "Real Price: " + real_price
+                        : "Pred Price: " + pred_price;
+                    var floatBoxHeight = 30;
+                    var floatBoxWidth = 110;
+                    var xOffset = cursorX < 0.8 * width ? 0 : floatBoxWidth;
+                    var yOffset =
+                        cursorY > 2 * floatBoxHeight ? 0 : floatBoxHeight;
+                    chart
+                        .append("rect")
+                        .attr("id", "floatingBox")
+                        .attr("x", cursorX + 10 - xOffset)
+                        .attr("y", cursorY - 40 + yOffset)
+                        .attr("width", floatBoxWidth)
+                        .attr("height", floatBoxHeight)
+                        .attr("fill", "black");
+                    chart
+                        .append("text")
+                        .attr("class", "textFloatingBox")
+                        .attr("x", cursorX + 15 - xOffset)
+                        .attr("y", cursorY - 28 + yOffset)
+                        .attr("fill", "black")
+                        .attr("font-size", "10px")
+                        .text(displayDate);
+                    chart
+                        .append("text")
+                        .attr("class", "textFloatingBox")
+                        .attr("x", cursorX + 15 - xOffset)
+                        .attr("y", cursorY - 15 + yOffset)
+                        .attr("fill", "black")
+                        .attr("font-size", "10px")
+                        .text(displayPrice);
+                }
+            });
+            // ==================================== end of Cursor Tracker ===============
 
             function convert(d) {
                 return {
@@ -390,6 +504,29 @@
                 return d3.axisLeft(y).ticks(5);
             }
 
+            // convertion from price to pixel for y
+            function priceToPixelY(price) {
+                var yAxisLow = y.domain()[0];
+                var yAxisHigh = y.domain()[1];
+                return (
+                    ((height - margin.top - margin.bottom) *
+                        (yAxisHigh - price)) /
+                        (yAxisHigh - yAxisLow) +
+                    margin.top
+                );
+            }
+
+            // convertion from day i to pixel for x
+            function dayToPixelX(i) {
+                return (
+                    (i * (0.9 * width - margin.left - margin.right - 10)) /
+                        149 +
+                    margin.left +
+                    10
+                );
+            }
+
+            // ========= keyboard press helper functions ==========================
             Mousetrap.bind("p", function (e, n) {
                 populate_next_day();
             });
@@ -423,6 +560,7 @@
                     updateLineChart();
                 }, 200);
             }
+            // ======================================= end of: keyboard press =============
 
             function updateRealPrice() {
                 // push the database api to update real price
@@ -440,7 +578,7 @@
                 fetch(proxyurl + database_api_endpoint + "/real_pred_150d")
                     .then((response) => response.text())
                     .then((text) => {
-                        var data = JSON.parse(text).map((d) => {
+                        data = JSON.parse(text).map((d) => {
                             return {
                                 date: parseDate(d.date.replace(/[-]/g, "")),
                                 value0: +d["value0"], // The Real Stock Price - whiteline
@@ -449,14 +587,14 @@
                         });
                         // console.log(data);
 
-                        let x = d3
+                        x = d3
                             .scaleTime()
                             .domain(d3.extent(data, (d) => d.date))
                             .range([
                                 margin.left + 10,
                                 0.9 * width - margin.right,
                             ]);
-                        let y = d3
+                        y = d3
                             .scaleLinear()
                             .domain([
                                 d3.min(data, (d) =>
@@ -610,6 +748,8 @@
                                 var real_prev_price =
                                     data[data.length - 1]["value0"];
                                 var pred_new_price = JSON.parse(text);
+
+                                pred_new_price_buffer = pred_new_price;
                                 console.log(
                                     "pred_new_price = ",
                                     pred_new_price
@@ -627,11 +767,11 @@
                                             (yAxisHigh - yAxisLow) +
                                         margin.top;
                                     var pred_new_price_x =
-                                        (151 *
+                                        (150 *
                                             (0.9 * width -
                                                 margin.left -
                                                 margin.right)) /
-                                            150 +
+                                            149 +
                                         margin.left +
                                         10;
                                     var pred_new_price_y =
