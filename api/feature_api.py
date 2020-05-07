@@ -25,9 +25,7 @@ class Feature():
     def __init__(self):
         f = open('../json/all_feature.json',) 
         # access feature like this: ft._all_feature["2019-03-04"]
-        self.cur_date = "2019-03-04"
         self._all_feature = json.load(f)
-        self.feature = None     # latest feature
         g = open('../json/real_price.json',)
         self.real_new_price = json.load(g)
 
@@ -42,11 +40,11 @@ class Feature_Extraction(Resource):
         #   - real_new_price
         requested_date = request.json
         try:
-            print("received request for %s on date: %s" % (data_name, requested_date), end=": ")
+            print("received POST request for %s on date: %s" % (data_name, requested_date), end=": ")
             if data_name == 'feature':
                 if requested_date not in ft._all_feature: 
                     return "Not Ready!"
-                print(ft._all_feature[requested_date])
+                print(ft._all_feature[requested_date]["adj_close_lag_1"])
                 return ft._all_feature[requested_date]
             elif data_name == "real_new_price":
                 if requested_date not in ft.real_new_price: 

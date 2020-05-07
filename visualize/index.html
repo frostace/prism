@@ -15,12 +15,21 @@
         <link rel="stylesheet" href="./style.css" />
         <script src="https://d3js.org/d3.v5.min.js" charset="UTF-8"></script>
         <script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.4.6/mousetrap.js"
+            charset="utf-8"
+        ></script>
         <title>Line Chart</title>
     </head>
     <body>
         <h1>$GOOGL</h1>
-        <!-- <script type="module" src="./index.js"></script> -->
-        <!-- <script type="module" src="./lib/domUid.js"></script> -->
+        <!-- <button type="button" onclick="updateLineChart()">Update Chart</button>
+        <button type="button" onclick="populate_next_day()">
+            Gen Pred Price
+        </button>
+        <button type="button" onclick="updateRealPrice()">
+            Gen Real Price
+        </button> -->
         <script>
             // ============ dependencies ================================================
             async function remote_fetch(file) {
@@ -358,11 +367,16 @@
             let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
             let curve = d3.curveStep;
             let margin = { top: 20, right: 20, bottom: 30, left: 30 };
-            let height = 600;
+            let height = 350;
             let width = 800;
+            let counter = 0;
             const database_api_endpoint = "127.0.0.1:12346/database_api";
             const parseDate = d3.timeParse("%Y%m%d");
             const proxyurl = "http://127.0.0.1:12340/";
+            var chart = d3
+                .select("body")
+                .append("svg")
+                .attr("viewBox", [0, 0, width, height]);
 
             function convert(d) {
                 return {
@@ -375,247 +389,304 @@
             function make_y_gridlines() {
                 return d3.axisLeft(y).ticks(5);
             }
-            // const data = dsv("\t").parse(
-            //     await FileAttachment("./weather.tsv").text(),
-            //     (d) => ({
-            //         date: parseDate(d.date),
-            //         value0: +d["New York"], // The primary value.
-            //         value1: +d["San Francisco"], // The secondary comparison value.
-            //     })
-            // );
-            // data.y = "°F";
 
-            // send a get request to "http://localhost:12346/database_api/real_pred_90d"
-            // fetch(proxyurl + database_api_endpoint + "/real_pred_90d")
-            //     .then((response) => response.text())
-            //     .then((data) => {
-            //         console.log(data);
-            //     });
+            Mousetrap.bind("p", function (e, n) {
+                populate_next_day();
+            });
 
-            fetch(proxyurl + database_api_endpoint + "/real_pred_150d")
-                .then((response) => response.text())
-                .then((text) => {
-                    var data = JSON.parse(text).map((d) => {
-                        return {
-                            date: parseDate(d.date.replace(/[-]/g, "")),
-                            value0: +d["value0"], // The Real Stock Price - whiteline
-                            value1: +d["value1"], // The Predicted Stock Price - blue/red bar
-                        };
-                    });
-                    console.log(data);
+            Mousetrap.bind("r", function (e, n) {
+                updateRealPrice();
+            });
 
-                    let x = d3
-                        .scaleTime()
-                        .domain(d3.extent(data, (d) => d.date))
-                        .range([margin.left + 10, 0.9 * width - margin.right]);
-                    let y = d3
-                        .scaleLinear()
-                        .domain([
-                            d3.min(data, (d) => Math.min(d.value0, d.value1)),
-                            d3.max(data, (d) => Math.max(d.value0, d.value1)),
-                        ])
-                        .nice(5)
-                        .range([height - margin.bottom, margin.top]);
-                    xAxis = (g) =>
-                        g
+            Mousetrap.bind("u", function (e, n) {
+                updateLineChart();
+            });
+
+            Mousetrap.bind("enter", function (e, n) {
+                // counter even -> populate_next_day + updateLineChart
+                // counter odd -> updateRealPrice + updateLineChart
+                console.log(counter);
+                counter & 1 ? odd() : even();
+                counter = counter + 1;
+            });
+
+            function even() {
+                populate_next_day();
+                setTimeout(function () {
+                    updateLineChart();
+                }, 200);
+            }
+
+            function odd() {
+                updateRealPrice();
+                setTimeout(function () {
+                    updateLineChart();
+                }, 200);
+            }
+
+            function updateRealPrice() {
+                // push the database api to update real price
+                fetch(proxyurl + database_api_endpoint + "/next_real_price")
+                    .then((response) => response.text())
+                    .then((text) => {
+                        console.log(text);
+                    })
+                    .catch((error) => {
+                        console.log(error, "when posting: next_real_price");
+                    }); // end of POST next_real_price
+            }
+
+            function updateLineChart() {
+                fetch(proxyurl + database_api_endpoint + "/real_pred_150d")
+                    .then((response) => response.text())
+                    .then((text) => {
+                        var data = JSON.parse(text).map((d) => {
+                            return {
+                                date: parseDate(d.date.replace(/[-]/g, "")),
+                                value0: +d["value0"], // The Real Stock Price - whiteline
+                                value1: +d["value1"], // The Predicted Stock Price - blue/red bar
+                            };
+                        });
+                        // console.log(data);
+
+                        let x = d3
+                            .scaleTime()
+                            .domain(d3.extent(data, (d) => d.date))
+                            .range([
+                                margin.left + 10,
+                                0.9 * width - margin.right,
+                            ]);
+                        let y = d3
+                            .scaleLinear()
+                            .domain([
+                                d3.min(data, (d) =>
+                                    Math.min(d.value0, d.value1)
+                                ),
+                                d3.max(data, (d) =>
+                                    Math.max(d.value0, d.value1)
+                                ),
+                            ])
+                            .nice(5)
+                            .range([height - margin.bottom, margin.top]);
+                        xAxis = (g) =>
+                            g
+                                .attr(
+                                    "transform",
+                                    `translate(0,${height - margin.bottom})`
+                                )
+                                .call(
+                                    d3
+                                        .axisBottom(x)
+                                        .ticks(width / 80)
+                                        .tickSizeOuter(0)
+                                )
+                                .call((g) => g.select(".domain").remove());
+                        yAxis = (g) =>
+                            g
+                                .append("g")
+                                .attr(
+                                    "transform",
+                                    `translate(${margin.left + 10},0)`
+                                )
+                                .call(d3.axisLeft(y))
+                                .call((g) => g.select(".domain").remove())
+                                .call((g) =>
+                                    g
+                                        .select(".tick:last-of-type text")
+                                        .clone()
+                                        .attr("x", 3)
+                                        .attr("text-anchor", "start")
+                                        .attr("font-weight", "bold")
+                                        .text(data.y)
+                                );
+
+                        const aboveUid = domUid("above");
+                        const belowUid = domUid("below");
+
+                        // insert data
+                        chart.selectAll("*").remove();
+                        chart.datum(data);
+
+                        // generate x and y axis
+                        chart.append("g").call(xAxis);
+                        chart.append("g").call(yAxis);
+
+                        chart
+                            .append("clipPath")
+                            .attr("id", aboveUid.id)
+                            .append("path")
                             .attr(
-                                "transform",
-                                `translate(0,${height - margin.bottom})`
-                            )
-                            .call(
+                                "d",
                                 d3
-                                    .axisBottom(x)
-                                    .ticks(width / 80)
-                                    .tickSizeOuter(0)
-                            )
-                            .call((g) => g.select(".domain").remove());
-                    yAxis = (g) =>
-                        g
-                            .append("g")
-                            .attr(
-                                "transform",
-                                `translate(${margin.left + 10},0)`
-                            )
-                            .call(d3.axisLeft(y))
-                            .call((g) => g.select(".domain").remove())
-                            .call((g) =>
-                                g
-                                    .select(".tick:last-of-type text")
-                                    .clone()
-                                    .attr("x", 3)
-                                    .attr("text-anchor", "start")
-                                    .attr("font-weight", "bold")
-                                    .text(data.y)
+                                    .area()
+                                    .curve(curve)
+                                    .x((d) => x(d.date))
+                                    .y0(0)
+                                    .y1((d) => y(d.value1))
                             );
 
-                    const aboveUid = domUid("above");
-                    const belowUid = domUid("below");
+                        chart
+                            .append("clipPath")
+                            .attr("id", belowUid.id)
+                            .append("path")
+                            .attr(
+                                "d",
+                                d3
+                                    .area()
+                                    .curve(curve)
+                                    .x((d) => x(d.date))
+                                    .y0(height)
+                                    .y1((d) => y(d.value1))
+                            );
 
-                    var chart = d3
-                        .select("body")
-                        .append("svg")
-                        .attr("viewBox", [0, 0, width, height])
-                        .datum(data);
+                        // generate error bars lower than baseline
+                        chart
+                            .append("path")
+                            .attr("clip-path", aboveUid)
+                            .attr("fill", colors[1])
+                            .attr(
+                                "d",
+                                d3
+                                    .area()
+                                    .curve(curve)
+                                    .x((d) => x(d.date))
+                                    .y0(height)
+                                    .y1((d) => y(d.value0))
+                            );
 
-                    // generate x and y axis
-                    chart.append("g").call(xAxis);
-                    chart.append("g").call(yAxis);
+                        // generate error bars higher than baseline
+                        chart
+                            .append("path")
+                            .attr("clip-path", belowUid)
+                            .attr("fill", colors[0])
+                            .attr(
+                                "d",
+                                d3
+                                    .area()
+                                    .curve(curve)
+                                    .x((d) => x(d.date))
+                                    .y0(0)
+                                    .y1((d) => y(d.value0))
+                            );
 
-                    chart
-                        .append("clipPath")
-                        .attr("id", aboveUid.id)
-                        .append("path")
-                        .attr(
-                            "d",
-                            d3
-                                .area()
-                                .curve(curve)
-                                .x((d) => x(d.date))
-                                .y0(0)
-                                .y1((d) => y(d.value1))
-                        );
+                        // generate baseline - whiteline
+                        chart
+                            .append("path")
+                            .attr("fill", "none")
+                            .attr("stroke", "black")
+                            .attr("stroke-width", 1.5)
+                            .attr("stroke-linejoin", "round")
+                            .attr("stroke-linecap", "round")
+                            .attr(
+                                "d",
+                                d3
+                                    .line()
+                                    .curve(curve)
+                                    .x((d) => x(d.date))
+                                    .y((d) => y(d.value0))
+                            );
 
-                    chart
-                        .append("clipPath")
-                        .attr("id", belowUid.id)
-                        .append("path")
-                        .attr(
-                            "d",
-                            d3
-                                .area()
-                                .curve(curve)
-                                .x((d) => x(d.date))
-                                .y0(height)
-                                .y1((d) => y(d.value1))
-                        );
+                        // add horizontal grid lines
 
-                    // generate error bars lower than baseline
-                    chart
-                        .append("path")
-                        .attr("clip-path", aboveUid)
-                        .attr("fill", colors[1])
-                        .attr(
-                            "d",
-                            d3
-                                .area()
-                                .curve(curve)
-                                .x((d) => x(d.date))
-                                .y0(height)
-                                .y1((d) => y(d.value0))
-                        );
+                        // const numberOfTicks = 12;
+                        // var yAxisGrid = d3
+                        //     .axisRight()
+                        //     .scale(y)
+                        //     .ticks(numberOfTicks)
+                        //     .tickSize(width, 0)
+                        //     .tickFormat("");
+                        // chart
+                        //     .append("g")
+                        //     .classed("y", true)
+                        //     .classed("axis", true)
+                        //     .call(yAxisGrid);
 
-                    // generate error bars higher than baseline
-                    chart
-                        .append("path")
-                        .attr("clip-path", belowUid)
-                        .attr("fill", colors[0])
-                        .attr(
-                            "d",
-                            d3
-                                .area()
-                                .curve(curve)
-                                .x((d) => x(d.date))
-                                .y0(0)
-                                .y1((d) => y(d.value0))
-                        );
+                        // draw predicted new price
+                        fetch(
+                            proxyurl + database_api_endpoint + "/pred_new_price"
+                        )
+                            .then((response) => response.text())
+                            .then((text) => {
+                                var real_prev_price =
+                                    data[data.length - 1]["value0"];
+                                var pred_new_price = JSON.parse(text);
+                                console.log(
+                                    "pred_new_price = ",
+                                    pred_new_price
+                                );
+                                var yAxisLow = y.domain()[0];
+                                var yAxisHigh = y.domain()[1];
 
-                    // generate baseline - whiteline
-                    chart
-                        .append("path")
-                        .attr("fill", "none")
-                        .attr("stroke", "black")
-                        .attr("stroke-width", 1.5)
-                        .attr("stroke-linejoin", "round")
-                        .attr("stroke-linecap", "round")
-                        .attr(
-                            "d",
-                            d3
-                                .line()
-                                .curve(curve)
-                                .x((d) => x(d.date))
-                                .y((d) => y(d.value0))
-                        );
+                                if (pred_new_price !== null) {
+                                    // compute predicted new price pixel location according to canvas size
+                                    var real_new_price_x =
+                                        0.9 * width - margin.right;
+                                    var real_prev_price_y =
+                                        ((height - margin.top - margin.bottom) *
+                                            (yAxisHigh - real_prev_price)) /
+                                            (yAxisHigh - yAxisLow) +
+                                        margin.top;
+                                    var pred_new_price_x =
+                                        (151 *
+                                            (0.9 * width -
+                                                margin.left -
+                                                margin.right)) /
+                                            150 +
+                                        margin.left +
+                                        10;
+                                    var pred_new_price_y =
+                                        ((height - margin.top - margin.bottom) *
+                                            (yAxisHigh - pred_new_price)) /
+                                            (yAxisHigh - yAxisLow) +
+                                        margin.top;
 
-                    // add horizontal grid lines
+                                    chart
+                                        .append("line")
+                                        .classed("blinking", true)
+                                        .attr("x1", real_new_price_x)
+                                        .attr("y1", real_prev_price_y)
+                                        .attr("x2", pred_new_price_x)
+                                        .attr("y2", pred_new_price_y)
+                                        .attr("fill", "none")
+                                        .attr("stroke-width", 2)
+                                        .attr("stroke", "orange")
+                                        .style("stroke-dasharray", "1, 1");
+                                    var circle = chart
+                                        .append("circle")
+                                        .classed("blinking", true)
+                                        .attr("cx", pred_new_price_x)
+                                        .attr("cy", pred_new_price_y)
+                                        .attr("r", 3)
+                                        .attr("fill", "orange");
+                                }
+                            })
+                            .catch((error) => {
+                                console.log(
+                                    error,
+                                    "when fetching: pred_new_price"
+                                );
+                            }); // end of GET pred_new_price
+                    })
+                    .catch((error) => {
+                        console.log(error, "when fetching: real_pred_150d");
+                    }); // end of GET real_pred_150d
+            } // end of updateLineChart
 
-                    // const numberOfTicks = 12;
-                    // var yAxisGrid = d3
-                    //     .axisRight()
-                    //     .scale(y)
-                    //     .ticks(numberOfTicks)
-                    //     .tickSize(width, 0)
-                    //     .tickFormat("");
-                    // chart
-                    //     .append("g")
-                    //     .classed("y", true)
-                    //     .classed("axis", true)
-                    //     .call(yAxisGrid);
-
-                    // draw predicted new price
-                    fetch(proxyurl + database_api_endpoint + "/pred_new_price")
-                        .then((response) => response.text())
-                        .then((text) => {
-                            var real_prev_price =
-                                data[data.length - 1]["value0"];
-                            var pred_new_price = JSON.parse(text);
-                            var yAxisLow = y.domain()[0];
-                            var yAxisHigh = y.domain()[1];
-
-                            if (pred_new_price !== null) {
-                                // compute predicted new price pixel location according to canvas size
-                                var real_new_price_x =
-                                    0.9 * width - margin.right;
-                                var real_prev_price_y =
-                                    ((height - margin.top - margin.bottom) *
-                                        (yAxisHigh - real_prev_price)) /
-                                        (yAxisHigh - yAxisLow) +
-                                    margin.top;
-                                var pred_new_price_x =
-                                    (151 *
-                                        (0.9 * width -
-                                            margin.left -
-                                            margin.right)) /
-                                        150 +
-                                    margin.left +
-                                    10;
-                                var pred_new_price_y =
-                                    ((height - margin.top - margin.bottom) *
-                                        (yAxisHigh - pred_new_price)) /
-                                        (yAxisHigh - yAxisLow) +
-                                    margin.top;
-
-                                chart
-                                    .append("line")
-                                    .classed("blinking", true)
-                                    .attr("x1", real_new_price_x)
-                                    .attr("y1", real_prev_price_y)
-                                    .attr("x2", pred_new_price_x)
-                                    .attr("y2", pred_new_price_y)
-                                    .attr("fill", "none")
-                                    .attr("stroke-width", 2)
-                                    .attr("stroke", "orange")
-                                    .style("stroke-dasharray", "1, 1");
-                                var circle = chart
-                                    .append("circle")
-                                    .classed("blinking", true)
-                                    .attr("cx", pred_new_price_x)
-                                    .attr("cy", pred_new_price_y)
-                                    .attr("r", 3)
-                                    .attr("fill", "orange");
-                            }
-                        });
-
-                    // var circle = chart
-                    //     .append("circle")
-                    //     .attr("cx", 783)
-                    //     .attr("cy", pred_new_price_height)
-                    //     .attr("r", 2)
-                    //     .attr("fill", "red");
+            function populate_next_day() {
+                // push the database api to update the next set of pred price
+                fetch(proxyurl + database_api_endpoint + "/next_day", {
+                    method: "POST",
                 })
-                .catch((error) => {
-                    console.log(error);
-                });
+                    .then((response) => response.text())
+                    .then((text) => {
+                        console.log(text);
+                    })
+                    .catch((error) => {
+                        console.log(error, "when posting: next_day");
+                    }); // end of POST next_day
+            }
 
+            updateLineChart();
             // d3.tsv("weather.tsv", convert).then(function (data) {
             //     console.log(data);
             //     let x = d3
