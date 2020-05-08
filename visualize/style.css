@@ -5,6 +5,14 @@
     stroke-width: 0;
 }
 
+.axisTick line {
+    stroke: white;
+}
+
+.axisTick text {
+    fill: white;
+}
+
 .blinking {
     -webkit-animation: 1s blink ease infinite;
     -moz-animation: 1s blink ease infinite;

@@ -21,7 +21,7 @@
         ></script>
         <title>Line Chart</title>
     </head>
-    <body>
+    <body style="background-color: #17191a;">
         <h1>$GOOGL</h1>
         <!-- <button type="button" onclick="updateLineChart()">Update Chart</button>
         <button type="button" onclick="populate_next_day()">
@@ -363,9 +363,12 @@
                 a.setAttribute("download", filename);
                 a.click();
             }
-            // =================================================================================
+            // =========================================== end of dependencies ======================================
             // graph
-            let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
+            // colors[0], colors[1]
+            // let colors = [d3.schemeRdYlBu[3][2], d3.schemeRdYlBu[3][0]];
+            let colors = ["#892b07", "#1b3a4e"];
+            let textColor = "white";
             let curve = d3.curveStep;
 
             // scales
@@ -437,6 +440,7 @@
                 }
 
                 if (Math.abs(svgY - cursorY) < 50) {
+                    // keep one cursor tracker only
                     chart.select("#cursorCircle").remove();
                     chart.select("#floatingBox").remove();
                     chart.selectAll(".textFloatingBox").remove();
@@ -448,7 +452,7 @@
                             .attr("cx", cursorX)
                             .attr("cy", cursorY)
                             .attr("r", 3)
-                            .attr("stroke", "black")
+                            .attr("stroke", textColor)
                             .attr("fill", "none");
                     }
 
@@ -477,7 +481,7 @@
                         .attr("class", "textFloatingBox")
                         .attr("x", cursorX + 15 - xOffset)
                         .attr("y", cursorY - 28 + yOffset)
-                        .attr("fill", "black")
+                        .attr("fill", textColor)
                         .attr("font-size", "10px")
                         .text(displayDate);
                     chart
@@ -485,20 +489,12 @@
                         .attr("class", "textFloatingBox")
                         .attr("x", cursorX + 15 - xOffset)
                         .attr("y", cursorY - 15 + yOffset)
-                        .attr("fill", "black")
+                        .attr("fill", textColor)
                         .attr("font-size", "10px")
                         .text(displayPrice);
                 }
             });
             // ==================================== end of Cursor Tracker ===============
-
-            function convert(d) {
-                return {
-                    date: parseDate(d.date),
-                    value0: +d["New York"], // The primary value.
-                    value1: +d["San Francisco"], // The secondary comparison value.
-                };
-            }
 
             function make_y_gridlines() {
                 return d3.axisLeft(y).ticks(5);
@@ -612,6 +608,7 @@
                                     "transform",
                                     `translate(0,${height - margin.bottom})`
                                 )
+                                .attr("class", "axisTick")
                                 .call(
                                     d3
                                         .axisBottom(x)
@@ -626,6 +623,7 @@
                                     "transform",
                                     `translate(${margin.left + 10},0)`
                                 )
+                                .attr("class", "axisTick")
                                 .call(d3.axisLeft(y))
                                 .call((g) => g.select(".domain").remove())
                                 .call((g) =>
@@ -635,6 +633,7 @@
                                         .attr("x", 3)
                                         .attr("text-anchor", "start")
                                         .attr("font-weight", "bold")
+
                                         .text(data.y)
                                 );
 
@@ -642,6 +641,7 @@
                         const belowUid = domUid("below");
 
                         // insert data
+                        // TODO: use selector more accurately, so that I don't have to draw legend every time
                         chart.selectAll("*").remove();
                         chart.datum(data);
 
@@ -711,7 +711,7 @@
                         chart
                             .append("path")
                             .attr("fill", "none")
-                            .attr("stroke", "black")
+                            .attr("stroke", textColor)
                             .attr("stroke-width", 1.5)
                             .attr("stroke-linejoin", "round")
                             .attr("stroke-linecap", "round")
@@ -806,6 +806,74 @@
                                     "when fetching: pred_new_price"
                                 );
                             }); // end of GET pred_new_price
+
+                        // ========= Legend ==========================================
+                        chart
+                            .append("line")
+                            .attr("x1", 188)
+                            .attr("y1", 10)
+                            .attr("x2", 192)
+                            .attr("y2", 10)
+                            .attr("stroke", textColor);
+                        // chart
+                        //     .append("circle")
+                        //     .attr("cx", 190) // 200, 130
+                        //     .attr("cy", 10)
+                        //     .attr("r", 3)
+                        //     .style("fill", "#69b3a2");
+                        chart
+                            .append("rect")
+                            .attr("x", 300) // 200, 160
+                            .attr("y", 7)
+                            .attr("width", 6)
+                            .attr("height", 6)
+                            .style("fill", colors[0]); // colors[0] -> blue
+                        chart
+                            .append("rect")
+                            .attr("x", 400) // 200, 160
+                            .attr("y", 7)
+                            .attr("width", 6)
+                            .attr("height", 6)
+                            .style("fill", colors[1]); // colors[0] -> blue
+                        chart
+                            .append("circle")
+                            .attr("cx", 500) // 200, 160
+                            .attr("cy", 10)
+                            .attr("r", 3)
+                            .style("fill", "orange");
+                        chart
+                            .append("text")
+                            .attr("x", 200)
+                            .attr("y", 10)
+                            .text("real price (baseline)")
+                            .style("font-size", "10px")
+                            .attr("alignment-baseline", "middle")
+                            .attr("fill", textColor);
+                        chart
+                            .append("text")
+                            .attr("x", 310)
+                            .attr("y", 10)
+                            .text("positive error")
+                            .style("font-size", "10px")
+                            .attr("alignment-baseline", "middle")
+                            .attr("fill", textColor);
+                        chart
+                            .append("text")
+                            .attr("x", 410)
+                            .attr("y", 10)
+                            .text("negative error")
+                            .style("font-size", "10px")
+                            .attr("alignment-baseline", "middle")
+                            .attr("fill", textColor);
+                        chart
+                            .append("text")
+                            .attr("x", 510)
+                            .attr("y", 10)
+                            .text("next predicted price")
+                            .style("font-size", "10px")
+                            .attr("alignment-baseline", "middle")
+                            .attr("fill", textColor);
+                        // ==================================== end of Legend ===============
                     })
                     .catch((error) => {
                         console.log(error, "when fetching: real_pred_150d");
@@ -827,141 +895,6 @@
             }
 
             updateLineChart();
-            // d3.tsv("weather.tsv", convert).then(function (data) {
-            //     console.log(data);
-            //     let x = d3
-            //         .scaleTime()
-            //         .domain(d3.extent(data, (d) => d.date))
-            //         .range([margin.left, width - margin.right]);
-            //     let y = d3
-            //         .scaleLinear()
-            //         .domain([
-            //             d3.min(data, (d) => Math.min(d.value0, d.value1)),
-            //             d3.max(data, (d) => Math.max(d.value0, d.value1)),
-            //         ])
-            //         .nice(5)
-            //         .range([height - margin.bottom, margin.top]);
-            //     xAxis = (g) =>
-            //         g
-            //             .attr(
-            //                 "transform",
-            //                 `translate(0,${height - margin.bottom})`
-            //             )
-            //             .call(
-            //                 d3
-            //                     .axisBottom(x)
-            //                     .ticks(width / 80)
-            //                     .tickSizeOuter(0)
-            //             )
-            //             .call((g) => g.select(".domain").remove());
-            //     yAxis = (g) =>
-            //         g
-            //             .append("g")
-            //             .attr("transform", `translate(${margin.left},0)`)
-            //             .call(d3.axisLeft(y))
-            //             .call((g) => g.select(".domain").remove())
-            //             .call((g) =>
-            //                 g
-            //                     .select(".tick:last-of-type text")
-            //                     .clone()
-            //                     .attr("x", 3)
-            //                     .attr("text-anchor", "start")
-            //                     .attr("font-weight", "bold")
-            //                     .text(data.y)
-            //             );
-
-            //     const aboveUid = domUid("above");
-            //     const belowUid = domUid("below");
-
-            //     var chart = d3
-            //         .select("body")
-            //         .append("svg")
-            //         .attr("viewBox", [0, 0, width, height])
-            //         .datum(data);
-
-            //     // var circle = chart
-            //     //     .append("circle")
-            //     //     .attr("cx", 150)
-            //     //     .attr("cy", 75)
-            //     //     .attr("r", 20)
-            //     //     .attr("fill", "red")
-            //     //     .chart.append("g")
-            //     //     .call(xAxis);
-            //     chart.append("g").call(yAxis);
-            //     chart
-            //         .append("clipPath")
-            //         .attr("id", aboveUid.id)
-            //         .append("path")
-            //         .attr(
-            //             "d",
-            //             d3
-            //                 .area()
-            //                 .curve(curve)
-            //                 .x((d) => x(d.date))
-            //                 .y0(0)
-            //                 .y1((d) => y(d.value1))
-            //         );
-
-            //     chart
-            //         .append("clipPath")
-            //         .attr("id", belowUid.id)
-            //         .append("path")
-            //         .attr(
-            //             "d",
-            //             d3
-            //                 .area()
-            //                 .curve(curve)
-            //                 .x((d) => x(d.date))
-            //                 .y0(height)
-            //                 .y1((d) => y(d.value1))
-            //         );
-
-            //     chart
-            //         .append("path")
-            //         .attr("clip-path", aboveUid)
-            //         .attr("fill", colors[1])
-            //         .attr(
-            //             "d",
-            //             d3
-            //                 .area()
-            //                 .curve(curve)
-            //                 .x((d) => x(d.date))
-            //                 .y0(height)
-            //                 .y1((d) => y(d.value0))
-            //         );
-
-            //     chart
-            //         .append("path")
-            //         .attr("clip-path", belowUid)
-            //         .attr("fill", colors[0])
-            //         .attr(
-            //             "d",
-            //             d3
-            //                 .area()
-            //                 .curve(curve)
-            //                 .x((d) => x(d.date))
-            //                 .y0(0)
-            //                 .y1((d) => y(d.value0))
-            //         );
-
-            //     chart
-            //         .append("path")
-            //         .attr("fill", "none")
-            //         .attr("stroke", "black")
-            //         .attr("stroke-width", 1.5)
-            //         .attr("stroke-linejoin", "round")
-            //         .attr("stroke-linecap", "round")
-            //         .attr(
-            //             "d",
-            //             d3
-            //                 .line()
-            //                 .curve(curve)
-            //                 .x((d) => x(d.date))
-            //                 .y((d) => y(d.value0))
-            //         );
-            // });
-
-            //end
         </script>
     </body>
 </html>
