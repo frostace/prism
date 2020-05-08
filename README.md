@@ -1,5 +1,11 @@
 # Event-Linkage-and-Impact-Prediction
 
+## Demo
+### Predicted New Price on One Day
+![image](https://github.com/frostace/Event-Linkage-and-Impact-Prediction/edit/master/demo/Predicted New Price.gif)
+### Speed Up Animation
+![image](https://github.com/frostace/Event-Linkage-and-Impact-Prediction/edit/master/demo/Stock Prediction Animation.gif)
+
 ## Prerequisites
 ```shell
 pip install -r requirements.txt
