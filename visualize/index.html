@@ -441,13 +441,13 @@
                     pred_price = pred_new_price_buffer.toFixed(2);
                     closestDate = "Next Opening Day";
                 }
+                // keep one cursor tracker only
+                chart.select("#cursorCircle").remove();
+                chart.select("#floatingBox").remove();
+                chart.selectAll(".textFloatingBox").remove();
 
+                // display cursor within threshold 50
                 if (Math.abs(svgY - cursorY) < 50) {
-                    // keep one cursor tracker only
-                    chart.select("#cursorCircle").remove();
-                    chart.select("#floatingBox").remove();
-                    chart.selectAll(".textFloatingBox").remove();
-
                     if (idx < 150) {
                         chart
                             .append("circle")
